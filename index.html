@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Report Trial Class - YEC.CO.ID</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js untuk Diagram Batang -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body {
@@ -254,7 +252,7 @@
                     </div>
 
                     <!-- Tabel Rincian Nilai -->
-                    <div class="mb-8">
+                    <div class="mb-8 flex-grow">
                         <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Rincian Nilai Performa</h3>
                         <div class="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
                             <table class="w-full text-sm">
@@ -292,19 +290,6 @@
                         </div>
                     </div>
 
-                    <!-- Diagram Batang (Chart) -->
-                    <div class="mt-4">
-                        <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Grafik Perkembangan Praktik</h3>
-                        <!-- Struktur dipisah dengan tegas: Canvas disembunyikan saat print, Img dimunculkan saat print -->
-                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm w-full">
-                            <!-- Wrapper Canvas (Hanya tampil di Web) -->
-                            <div class="w-full h-48 relative print:hidden">
-                                <canvas id="scoreChart"></canvas>
-                            </div>
-                            <!-- Wrapper Image (Hanya tampil di PDF/Cetak) -->
-                            <img id="scoreChartImg" class="hidden print:block w-full h-48 object-contain mx-auto" alt="Grafik Print" />
-                        </div>
-                    </div>
                 </div> <!-- End of Page 1 -->
 
                 <!-- Visual Separator untuk Web (Tidak ikut ter-print di PDF) -->
@@ -386,70 +371,6 @@
             return val;
         }
 
-        // Inisialisasi Chart.js
-        let progressChart = null;
-
-        function initChart() {
-            const ctx = document.getElementById('scoreChart').getContext('2d');
-            progressChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Suara (Vokal)', 'Gestur (Tubuh)', 'Mimik (Ekspresi)'],
-                    datasets: [
-                        {
-                            label: 'Praktik 1',
-                            data: [0, 0, 0],
-                            backgroundColor: ['#93c5fd', '#fdba74', '#6ee7b7'], // Warna muda
-                            borderWidth: 0,
-                            borderRadius: 4,
-                            barPercentage: 0.6,
-                            categoryPercentage: 0.8
-                        },
-                        {
-                            label: 'Praktik 2',
-                            data: [0, 0, 0],
-                            backgroundColor: ['#2563eb', '#ea580c', '#059669'], // Warna solid
-                            borderWidth: 0,
-                            borderRadius: 4,
-                            barPercentage: 0.6,
-                            categoryPercentage: 0.8
-                        }
-                    ]
-                },
-                options: {
-                    animation: false, // PENTING: Matikan animasi
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: { stepSize: 20 },
-                            grid: { color: '#f3f4f6' }
-                        },
-                        x: {
-                            grid: { display: false }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { usePointStyle: true, boxWidth: 8 }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y + ' Poin';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            // Update gambar saat inisialisasi awal
-            updateChartImage();
-        }
-
         // Calculate Average Score
         function calculateScore() {
             const s1 = parseInt(document.getElementById('s-suara-1').value) || 0;
@@ -483,25 +404,6 @@
             }
             
             document.getElementById('prev-nilai-akhir').innerText = avg;
-
-            // Update data di Diagram Batang
-            if(progressChart) {
-                progressChart.data.datasets[0].data = [s1, g1, m1];
-                progressChart.data.datasets[1].data = [s2, g2, m2];
-                progressChart.update();
-                
-                // Segera update backup gambarnya setelah grafik terupdate
-                updateChartImage();
-            }
-        }
-
-        // FUNGSI BARU: Menyimpan wujud grafik ke dalam image statis di latar belakang
-        function updateChartImage() {
-            if(progressChart) {
-                setTimeout(() => {
-                    document.getElementById('scoreChartImg').src = progressChart.toBase64Image();
-                }, 100);
-            }
         }
 
         const apiKey = ""; // Disuplai otomatis oleh sistem di latar belakang
@@ -597,7 +499,6 @@ ${rawNotes || 'Tidak ada catatan mentah khusus dari instruktur. Buatkan analisis
         }
 
         // Init
-        initChart();
         updatePreview();
     </script>
 </body>
