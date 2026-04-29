@@ -74,8 +74,8 @@
     <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50 print:hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold">Sistem Report YEC.CO.ID</h1>
-            <!-- Mengubah fungsi ke preparePrint() untuk memproses grafik terlebih dahulu -->
-            <button onclick="preparePrint()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-50 transition flex items-center gap-2">
+            <!-- Kembali menggunakan window.print() karena proses gambar sudah ditangani CSS -->
+            <button onclick="window.print()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-50 transition flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                 Cetak PDF
             </button>
@@ -293,13 +293,16 @@
                     </div>
 
                     <!-- Diagram Batang (Chart) -->
-                    <div class="flex-grow flex flex-col mt-4">
+                    <div class="mt-4">
                         <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Grafik Perkembangan Praktik</h3>
-                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex-grow flex justify-center items-center w-full min-h-[200px] relative">
-                            <!-- Canvas untuk web -->
-                            <canvas id="scoreChart"></canvas>
-                            <!-- Image tersembunyi yang akan muncul SAAT dicetak agar grafik tidak blank -->
-                            <img id="scoreChartImg" class="hidden max-h-full max-w-full object-contain" alt="Grafik Print" />
+                        <!-- Struktur dipisah dengan tegas: Canvas disembunyikan saat print, Img dimunculkan saat print -->
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm w-full">
+                            <!-- Wrapper Canvas (Hanya tampil di Web) -->
+                            <div class="w-full h-48 relative print:hidden">
+                                <canvas id="scoreChart"></canvas>
+                            </div>
+                            <!-- Wrapper Image (Hanya tampil di PDF/Cetak) -->
+                            <img id="scoreChartImg" class="hidden print:block w-full h-48 object-contain mx-auto" alt="Grafik Print" />
                         </div>
                     </div>
                 </div> <!-- End of Page 1 -->
@@ -414,7 +417,7 @@
                     ]
                 },
                 options: {
-                    animation: false, // PENTING: Matikan animasi agar canvas langsung siap saat dicetak
+                    animation: false, // PENTING: Matikan animasi
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
@@ -443,6 +446,8 @@
                     }
                 }
             });
+            // Update gambar saat inisialisasi awal
+            updateChartImage();
         }
 
         // Calculate Average Score
@@ -484,34 +489,22 @@
                 progressChart.data.datasets[0].data = [s1, g1, m1];
                 progressChart.data.datasets[1].data = [s2, g2, m2];
                 progressChart.update();
+                
+                // Segera update backup gambarnya setelah grafik terupdate
+                updateChartImage();
+            }
+        }
+
+        // FUNGSI BARU: Menyimpan wujud grafik ke dalam image statis di latar belakang
+        function updateChartImage() {
+            if(progressChart) {
+                setTimeout(() => {
+                    document.getElementById('scoreChartImg').src = progressChart.toBase64Image();
+                }, 100);
             }
         }
 
         const apiKey = ""; // Disuplai otomatis oleh sistem di latar belakang
-
-        // Fungsi khusus untuk mempersiapkan PDF agar Grafik tidak blank
-        function preparePrint() {
-            const canvas = document.getElementById('scoreChart');
-            const img = document.getElementById('scoreChartImg');
-
-            // Ubah canvas menjadi gambar base64
-            if (progressChart) {
-                img.src = progressChart.toBase64Image();
-                canvas.classList.add('hidden'); // Sembunyikan canvas
-                img.classList.remove('hidden'); // Tampilkan gambar statis
-            }
-
-            // Beri jeda kecil agar browser sempat merender gambar sebelum membuka dialog Print
-            setTimeout(() => {
-                window.print();
-            }, 300);
-        }
-
-        // Kembalikan ke wujud Canvas setelah dialog print ditutup
-        window.addEventListener('afterprint', () => {
-            document.getElementById('scoreChart').classList.remove('hidden');
-            document.getElementById('scoreChartImg').classList.add('hidden');
-        });
 
         async function generateWithGemini(promptText) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
