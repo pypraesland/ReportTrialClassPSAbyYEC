@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Trial Class - YEC.CO.ID</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Chart.js untuk Diagram Batang -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Styling khusus untuk area cetak PDF (2 Halaman) */
+        #pdf-preview {
+            width: 210mm; /* Lebar A4 */
+            margin: 0 auto;
+            background-color: transparent;
+        }
+        .pdf-page {
+            box-sizing: border-box; /* PENTING: Mencegah padding meluber */
+            background-color: white;
+            padding: 10mm 15mm; /* Margin dalam yang aman */
+            width: 210mm;
+            height: 296.5mm; /* Dikunci persis setinggi A4 minus toleransi error blank page */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Potong konten jika berlebih alih-alih merusak kertas */
+        }
+        .score-box {
+            transition: all 0.3s ease;
+        }
+        /* Class penanda batas halaman */
+        .break-here {
+            page-break-before: always;
+        }
+        @media print {
+            .pdf-page {
+                margin-bottom: 0;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">Sistem Report YEC.CO.ID</h1>
+            <button onclick="downloadPDF()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-50 transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Unduh PDF
+            </button>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto py-8 px-4 flex flex-col lg:flex-row gap-8">
+        
+        <!-- KOLOM KIRI: EDITOR (Tidak ikut ter-print) -->
+        <div class="lg:w-1/3 space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 border-b pb-3 mb-4">Data Peserta & Foto</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unggah Foto (Landscape 16:9)</label>
+                        <input type="file" id="input-photo" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                        <input type="text" id="input-nama" placeholder="Cth: Budi Santoso" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Panggilan</label>
+                        <input type="text" id="input-panggilan" placeholder="Cth: Budi" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
+                        <input type="text" id="input-kelas" placeholder="Cth: Kelas 4 SD" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" oninput="updatePreview()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 border-b pb-3 mb-4">Penilaian Praktik</h2>
+                <div class="space-y-4">
+                    <!-- Suara -->
+                    <div class="grid grid-cols-2 gap-4 bg-blue-50 p-3 rounded-lg">
+                        <div class="col-span-2 font-semibold text-blue-800 text-sm">Penilaian Suara</div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 1</label>
+                            <select id="s-suara-1" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-blue-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 2</label>
+                            <select id="s-suara-2" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-blue-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Gestur -->
+                    <div class="grid grid-cols-2 gap-4 bg-orange-50 p-3 rounded-lg">
+                        <div class="col-span-2 font-semibold text-orange-800 text-sm">Penilaian Gestur</div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 1</label>
+                            <select id="s-gestur-1" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-orange-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 2</label>
+                            <select id="s-gestur-2" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-orange-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Mimik -->
+                    <div class="grid grid-cols-2 gap-4 bg-emerald-50 p-3 rounded-lg">
+                        <div class="col-span-2 font-semibold text-emerald-800 text-sm">Penilaian Mimik</div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 1</label>
+                            <select id="s-mimik-1" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-emerald-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Praktik 2</label>
+                            <select id="s-mimik-2" class="w-full text-sm px-2 py-1.5 border rounded focus:ring-emerald-500" onchange="calculateScore()">
+                                <option value="0">Pilih Nilai...</option>
+                                <option value="35">[ 35 ] Kurang</option>
+                                <option value="60">[ 60 ] Cukup</option>
+                                <option value="80">[ 80 ] Baik (TARGET)</option>
+                                <option value="100">[ 100 ] Sangat Baik</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h2 class="text-lg font-bold text-gray-800">Catatan Penilaian</h2>
+                    <button id="btn-generate" onclick="generateAutoNotes()" class="bg-purple-100 text-purple-700 text-xs px-3 py-1.5 rounded hover:bg-purple-200 font-medium transition disabled:opacity-50 flex items-center gap-1">
+                        ✨ Buat Otomatis AI
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mb-3 leading-relaxed">Tuliskan poin-poin mentah evaluasi Anda di bawah ini. Klik <strong>"Buat Otomatis AI"</strong> untuk merangkainya menjadi 3 paragraf formal, analitis, dan mendalam berdasarkan poin mentah dan perolehan nilai di atas.</p>
+                <textarea id="input-catatan" rows="8" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Cth poin mentah: &#10;- Suara di praktik 1 agak bergumam, praktik 2 mulai lantang&#10;- Tangannya masih kaku memegang ujung baju&#10;- Ekspresi senyum sudah sangat bagus dan natural" oninput="updatePreview()"></textarea>
+            </div>
+
+        </div>
+
+        <!-- KOLOM KANAN: PREVIEW PDF (Area ini yang akan di-print) -->
+        <div class="lg:w-2/3 overflow-x-auto pb-10">
+            <div id="pdf-preview">
+                
+                <!-- ================= HALAMAN 1 ================= -->
+                <div class="pdf-page relative">
+                    <!-- Header Laporan -->
+                    <div class="text-center mb-8 border-b-4 border-blue-600 pb-6">
+                        <h1 class="text-2xl font-black text-gray-900 uppercase tracking-wide">Laporan Evaluasi</h1>
+                        <h2 class="text-xl font-bold text-blue-700 mt-1">Trial Class Public Speaking Anak by YEC.CO.ID</h2>
+                    </div>
+
+                    <!-- Foto & Identitas -->
+                    <div class="flex flex-col md:flex-row gap-8 mb-8">
+                        <!-- Area Foto Landscape (16:9) -->
+                        <div class="w-full md:w-1/2">
+                            <div class="w-full aspect-video bg-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center relative shadow-sm">
+                                <img id="preview-photo" src="" alt="Foto Siswa" class="w-full h-full object-cover hidden">
+                                <span id="photo-placeholder" class="text-gray-400 text-sm flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    <span>Area Foto (16:9)</span>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Area Identitas & Nilai Akhir -->
+                        <div class="w-full md:w-1/2 flex flex-col justify-between">
+                            <table class="w-full text-left">
+                                <tbody>
+                                    <tr class="border-b border-gray-100">
+                                        <th class="py-2 text-gray-600 w-1/3">Nama Lengkap</th>
+                                        <td class="py-2 font-semibold text-gray-900">: <span id="prev-nama">-</span></td>
+                                    </tr>
+                                    <tr class="border-b border-gray-100">
+                                        <th class="py-2 text-gray-600 w-1/3">Panggilan</th>
+                                        <td class="py-2 font-semibold text-gray-900">: <span id="prev-panggilan">-</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="py-2 text-gray-600 w-1/3">Kelas</th>
+                                        <td class="py-2 font-semibold text-gray-900">: <span id="prev-kelas">-</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                                <span class="font-bold text-blue-800 text-lg">Nilai Akhir:</span>
+                                <div class="bg-blue-600 text-white rounded-lg px-4 py-2 text-2xl font-black shadow-inner" id="prev-nilai-akhir">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabel Rincian Nilai -->
+                    <div class="mb-8">
+                        <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Rincian Nilai Performa</h3>
+                        <div class="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-600 border-b border-gray-200">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left">Kriteria Penilaian</th>
+                                        <th class="py-3 px-4 text-center w-32 border-l border-gray-200">Praktik 1</th>
+                                        <th class="py-3 px-4 text-center w-32 border-l border-gray-200">Praktik 2</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-gray-100">
+                                        <td class="py-3 px-4 font-medium text-gray-800 flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full bg-blue-500"></div> Suara (Vokal & Intonasi)
+                                        </td>
+                                        <td class="py-3 px-4 text-center font-bold text-blue-700 border-l border-gray-100 bg-blue-50/30" id="prev-s1">-</td>
+                                        <td class="py-3 px-4 text-center font-bold text-blue-700 border-l border-gray-100 bg-blue-50/30" id="prev-s2">-</td>
+                                    </tr>
+                                    <tr class="border-b border-gray-100">
+                                        <td class="py-3 px-4 font-medium text-gray-800 flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full bg-orange-500"></div> Gestur (Bahasa Tubuh)
+                                        </td>
+                                        <td class="py-3 px-4 text-center font-bold text-orange-700 border-l border-gray-100 bg-orange-50/30" id="prev-g1">-</td>
+                                        <td class="py-3 px-4 text-center font-bold text-orange-700 border-l border-gray-100 bg-orange-50/30" id="prev-g2">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-4 font-medium text-gray-800 flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div> Mimik (Ekspresi Wajah)
+                                        </td>
+                                        <td class="py-3 px-4 text-center font-bold text-emerald-700 border-l border-gray-100 bg-emerald-50/30" id="prev-m1">-</td>
+                                        <td class="py-3 px-4 text-center font-bold text-emerald-700 border-l border-gray-100 bg-emerald-50/30" id="prev-m2">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Diagram Batang (Chart) -->
+                    <div class="flex-grow flex flex-col mt-4">
+                        <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Grafik Perkembangan Praktik</h3>
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex-grow flex justify-center w-full min-h-[200px]">
+                            <canvas id="scoreChart"></canvas>
+                        </div>
+                    </div>
+                </div> <!-- End of Page 1 -->
+
+                <!-- Visual Separator untuk Web (Tidak ikut ter-print di PDF) -->
+                <div data-html2canvas-ignore class="w-full border-t-2 border-dashed border-gray-400 my-8 relative flex justify-center bg-transparent">
+                    <span class="bg-gray-200 px-4 py-1 text-gray-600 text-xs font-bold uppercase rounded-full absolute -top-3 shadow-sm border border-gray-300">Batas Halaman 1 & 2</span>
+                </div>
+
+                <!-- ================= HALAMAN 2 ================= -->
+                <!-- Menambahkan class break-here langsung ke wrapper halaman 2 -->
+                <div class="pdf-page break-here relative flex flex-col justify-between">
+                    <!-- Catatan Penilaian -->
+                    <div class="flex-grow flex flex-col">
+                        <h3 class="font-bold text-gray-800 mb-4 border-l-4 border-purple-500 pl-3 text-xl">Catatan Penilaian dan Observasi</h3>
+                        <div class="bg-blue-50/30 border border-gray-200 rounded-xl p-8 text-gray-800 leading-loose text-base shadow-sm flex-grow" id="prev-catatan">
+                            <p class="italic text-gray-400">Catatan penilaian akan muncul di sini. Silakan isi nilai dan gunakan tombol "Buat Otomatis AI" atau ketik secara manual di kolom kiri.</p>
+                        </div>
+                    </div>
+
+                    <!-- Footer Perusahaan -->
+                    <div class="mt-auto pt-6 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
+                        <div>
+                            <strong class="text-gray-700 text-base">YEC.CO.ID</strong><br>
+                            Smart Way to Learn Public Speaking
+                        </div>
+                        <div class="text-right">
+                            Dokumen dicetak pada: <br> <span id="print-date" class="font-semibold text-gray-600"></span>
+                        </div>
+                    </div>
+                </div> <!-- End of Page 2 -->
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set Print Date
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('print-date').innerText = new Date().toLocaleDateString('id-ID', dateOptions);
+
+        // Handle Image Upload
+        document.getElementById('input-photo').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imgPreview = document.getElementById('preview-photo');
+                    imgPreview.src = e.target.result;
+                    imgPreview.classList.remove('hidden');
+                    document.getElementById('photo-placeholder').classList.add('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Sync Text Inputs to Preview
+        function updatePreview() {
+            document.getElementById('prev-nama').innerText = document.getElementById('input-nama').value || '-';
+            const panggilan = document.getElementById('input-panggilan').value || '-';
+            document.getElementById('prev-panggilan').innerText = panggilan;
+            document.getElementById('prev-kelas').innerText = document.getElementById('input-kelas').value || '-';
+            
+            let catatanRaw = document.getElementById('input-catatan').value;
+            let catatanHtml = catatanRaw ? catatanRaw.replace(/\n/g, '<br><br>') : '<p class="italic text-gray-400">Catatan belum diisi.</p>';
+            
+            // Highlight poin penting dari markdown bold (**teks**) menjadi background kuning
+            catatanHtml = catatanHtml.replace(/\*\*(.*?)\*\*/g, '<span class="bg-yellow-100 text-yellow-900 px-1 rounded-sm font-semibold">$1</span>');
+
+            // Highlight nama panggilan di catatan (Bold)
+            if(panggilan !== '-') {
+                const regex = new RegExp(`\\b${panggilan}\\b`, 'gi');
+                // Pastikan tidak merusak tag span yang mungkin sudah ada
+                catatanHtml = catatanHtml.replace(regex, `<strong>${panggilan}</strong>`);
+            }
+            
+            document.getElementById('prev-catatan').innerHTML = catatanHtml;
+        }
+
+        // Format label for display
+        function formatScoreDisplay(val) {
+            if(val == 0) return '-';
+            return val;
+        }
+
+        // Inisialisasi Chart.js
+        let progressChart = null;
+
+        function initChart() {
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Suara (Vokal)', 'Gestur (Tubuh)', 'Mimik (Ekspresi)'],
+                    datasets: [
+                        {
+                            label: 'Praktik 1',
+                            data: [0, 0, 0],
+                            backgroundColor: ['#93c5fd', '#fdba74', '#6ee7b7'], // Warna muda
+                            borderWidth: 0,
+                            borderRadius: 4,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        },
+                        {
+                            label: 'Praktik 2',
+                            data: [0, 0, 0],
+                            backgroundColor: ['#2563eb', '#ea580c', '#059669'], // Warna solid
+                            borderWidth: 0,
+                            borderRadius: 4,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        }
+                    ]
+                },
+                options: {
+                    animation: false, // PENTING: Matikan animasi agar canvas langsung siap saat dirender ke PDF
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { stepSize: 20 },
+                            grid: { color: '#f3f4f6' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { usePointStyle: true, boxWidth: 8 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' Poin';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Calculate Average Score
+        function calculateScore() {
+            const s1 = parseInt(document.getElementById('s-suara-1').value) || 0;
+            const s2 = parseInt(document.getElementById('s-suara-2').value) || 0;
+            const g1 = parseInt(document.getElementById('s-gestur-1').value) || 0;
+            const g2 = parseInt(document.getElementById('s-gestur-2').value) || 0;
+            const m1 = parseInt(document.getElementById('s-mimik-1').value) || 0;
+            const m2 = parseInt(document.getElementById('s-mimik-2').value) || 0;
+
+            document.getElementById('prev-s1').innerText = formatScoreDisplay(s1);
+            document.getElementById('prev-s2').innerText = formatScoreDisplay(s2);
+            document.getElementById('prev-g1').innerText = formatScoreDisplay(g1);
+            document.getElementById('prev-g2').innerText = formatScoreDisplay(g2);
+            document.getElementById('prev-m1').innerText = formatScoreDisplay(m1);
+            document.getElementById('prev-m2').innerText = formatScoreDisplay(m2);
+
+            let totalPoin = 0;
+            let divisor = 0;
+            const scores = [s1, s2, g1, g2, m1, m2];
+            
+            scores.forEach(s => {
+                if (s > 0) {
+                    totalPoin += s;
+                    divisor++;
+                }
+            });
+
+            let avg = 0;
+            if (divisor > 0) {
+                avg = Math.ceil(totalPoin / divisor);
+            }
+            
+            document.getElementById('prev-nilai-akhir').innerText = avg;
+
+            // Update data di Diagram Batang
+            if(progressChart) {
+                progressChart.data.datasets[0].data = [s1, g1, m1];
+                progressChart.data.datasets[1].data = [s2, g2, m2];
+                progressChart.update();
+            }
+        }
+
+        const apiKey = ""; // Disuplai otomatis oleh sistem di latar belakang
+
+        async function generateWithGemini(promptText) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: "Anda adalah evaluator profesional untuk kelas Public Speaking Anak." }] }
+            };
+
+            let delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < 6; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                } catch (error) {
+                    if (i === 5) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
+        async function generateAutoNotes() {
+            const nama = document.getElementById('input-panggilan').value || "Siswa";
+            const s1 = parseInt(document.getElementById('s-suara-1').value) || 0;
+            const s2 = parseInt(document.getElementById('s-suara-2').value) || 0;
+            const g1 = parseInt(document.getElementById('s-gestur-1').value) || 0;
+            const g2 = parseInt(document.getElementById('s-gestur-2').value) || 0;
+            const m1 = parseInt(document.getElementById('s-mimik-1').value) || 0;
+            const m2 = parseInt(document.getElementById('s-mimik-2').value) || 0;
+            const finalScore = parseInt(document.getElementById('prev-nilai-akhir').innerText) || 0;
+            const rawNotes = document.getElementById('input-catatan').value;
+
+            if (s1 === 0 && s2 === 0 && g1 === 0 && g2 === 0 && m1 === 0 && m2 === 0) {
+                alert("Mohon isi nilai praktik terlebih dahulu agar AI dapat menganalisis performa berdasarkan angka.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-generate');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Mengolah AI...';
+            btn.disabled = true;
+
+            const promptText = `
+Sebagai evaluator ahli untuk kelas Public Speaking Anak di YEC.CO.ID, tugas Anda adalah merangkai "Catatan Mentah Instruktur" dan "Nilai Praktik" menjadi Catatan Penilaian Akhir yang formal, baku, detail, konkret, analitis, dan mendalam. 
+
+Instruksi Wajib:
+1. Hasil MAKSIMAL dan HARUS PERSIS 2 paragraf.
+2. Paragraf 1: Fokus evaluasi performa Suara (Vokal, Artikulasi, Intonasi), Gestur (Bahasa Tubuh), dan Mimik (Ekspresi Wajah) secara terpadu.
+3. Paragraf 2: Kesimpulan progres (dari Praktik 1 ke Praktik 2) dan saran perbaikan spesifik ke depannya.
+4. Bahasa harus profesional namun tetap suportif untuk anak-anak (gunakan sapaan Ananda/Siswa jika perlu).
+5. Elaborasi dan berikan contoh konkret (HANYA JIKA) disebutkan dalam catatan mentah. Jika tidak, buatkan deskripsi analitis mendalam yang selaras dengan angka nilai.
+6. Hubungkan narasi dengan angka penilaian yang didapatkan anak.
+7. Gunakan tanda bintang ganda (**teks**) pada frasa, kata sifat, atau poin yang sangat penting (misal: pencapaian luar biasa, progres signifikan, atau area perbaikan spesifik) agar sistem dapat menyorotinya (highlight).
+8. Langsung berikan hasil teksnya tanpa pengantar/penutup tambahan.
+
+Data Siswa:
+- Nama Panggilan: ${nama}
+
+Nilai Praktik (Skala 0-100, Target 80):
+- Suara: Praktik 1 = ${s1}, Praktik 2 = ${s2}
+- Gestur: Praktik 1 = ${g1}, Praktik 2 = ${g2}
+- Mimik: Praktik 1 = ${m1}, Praktik 2 = ${m2}
+- Nilai Akhir: ${finalScore}
+
+Catatan Mentah Instruktur:
+"""
+${rawNotes || 'Tidak ada catatan mentah khusus dari instruktur. Buatkan analisis umum yang sangat komprehensif, baku, dan mendalam berdasarkan tren perbandingan nilai praktik 1 dan praktik 2 saja.'}
+"""`;
+
+            try {
+                const generatedText = await generateWithGemini(promptText);
+                if(generatedText) {
+                    document.getElementById('input-catatan').value = generatedText.trim();
+                    updatePreview();
+                } else {
+                    alert("Respons AI kosong, silakan coba lagi.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Gagal menghasilkan catatan AI. Pastikan jaringan internet Anda stabil.");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // PDF Download Function using html2pdf
+        function downloadPDF() {
+            const element = document.getElementById('pdf-preview');
+            const studentName = document.getElementById('input-nama').value || 'Peserta';
+            
+            // Konfigurasi ketat agar hasil presisi 2 halaman A4
+            const opt = {
+                margin:       0, 
+                filename:     `Report_YEC_${studentName.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: 'css', before: '.break-here' } // Tembak langsung class break-here di Halaman 2
+            };
+
+            // Berikan efek loading pada tombol agar user tahu sedang diproses
+            const btn = document.querySelector('button[onclick="downloadPDF()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Memproses PDF...';
+            btn.disabled = true;
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        // Init
+        initChart();
+        updatePreview();
+    </script>
+</body>
+</html>
