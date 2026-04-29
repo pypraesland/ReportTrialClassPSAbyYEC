@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Report Trial Class - YEC.CO.ID</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- html2pdf for PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Chart.js untuk Diagram Batang -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -15,14 +13,14 @@
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
         }
-        /* Styling khusus untuk area cetak PDF (2 Halaman) */
+        /* Styling khusus untuk area cetak (2 Halaman) */
         #pdf-preview {
             width: 210mm; /* Lebar A4 */
             margin: 0 auto;
             background-color: transparent;
         }
         .pdf-page {
-            box-sizing: border-box; /* PENTING: Mencegah padding meluber */
+            box-sizing: border-box; /* Mencegah padding meluber */
             background-color: white;
             padding: 10mm 15mm; /* Margin dalam yang aman */
             width: 210mm;
@@ -36,14 +34,36 @@
         .score-box {
             transition: all 0.3s ease;
         }
-        /* Class penanda batas halaman */
-        .break-here {
-            page-break-before: always;
+        
+        /* PENGATURAN NATIVE PRINT (CETAK BROWSER) */
+        @page {
+            size: A4 portrait;
+            margin: 0; /* Menghapus margin default bawaan browser yang sering memotong teks */
         }
         @media print {
+            body {
+                background-color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .pdf-page {
-                margin-bottom: 0;
-                box-shadow: none;
+                width: 210mm !important;
+                height: 297mm !important; /* Presisi A4 saat dicetak */
+                padding: 15mm 20mm !important; /* Margin aman dari pinggir kertas agar tidak terpotong */
+                margin: 0 !important;
+                box-shadow: none !important;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+            .pdf-page:last-child {
+                page-break-after: auto; /* Hilangkan blank page di akhir */
+            }
+            .break-here {
+                page-break-before: always;
+            }
+            /* Hilangkan elemen interaktif saat dicetak */
+            #btn-generate {
+                display: none !important;
             }
         }
     </style>
@@ -51,20 +71,21 @@
 <body class="text-gray-800">
 
     <!-- Header -->
-    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50 print:hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold">Sistem Report YEC.CO.ID</h1>
-            <button onclick="downloadPDF()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-50 transition flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Unduh PDF
+            <!-- Mengubah fungsi ke preparePrint() untuk memproses grafik terlebih dahulu -->
+            <button onclick="preparePrint()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-50 transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                Cetak PDF
             </button>
         </div>
     </header>
 
-    <div class="max-w-7xl mx-auto py-8 px-4 flex flex-col lg:flex-row gap-8">
+    <div class="max-w-7xl mx-auto py-8 px-4 flex flex-col lg:flex-row gap-8 print:block print:p-0 print:m-0 print:max-w-none">
         
         <!-- KOLOM KIRI: EDITOR (Tidak ikut ter-print) -->
-        <div class="lg:w-1/3 space-y-6">
+        <div class="lg:w-1/3 space-y-6 print:hidden">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-3 mb-4">Data Peserta & Foto</h2>
                 
@@ -175,14 +196,14 @@
                         ✨ Buat Otomatis AI
                     </button>
                 </div>
-                <p class="text-xs text-gray-500 mb-3 leading-relaxed">Tuliskan poin-poin mentah evaluasi Anda di bawah ini. Klik <strong>"Buat Otomatis AI"</strong> untuk merangkainya menjadi 3 paragraf formal, analitis, dan mendalam berdasarkan poin mentah dan perolehan nilai di atas.</p>
+                <p class="text-xs text-gray-500 mb-3 leading-relaxed">Tuliskan poin-poin mentah evaluasi Anda di bawah ini. Klik <strong>"Buat Otomatis AI"</strong> untuk merangkainya menjadi 2 paragraf formal, analitis, dan mendalam berdasarkan poin mentah dan perolehan nilai di atas.</p>
                 <textarea id="input-catatan" rows="8" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Cth poin mentah: &#10;- Suara di praktik 1 agak bergumam, praktik 2 mulai lantang&#10;- Tangannya masih kaku memegang ujung baju&#10;- Ekspresi senyum sudah sangat bagus dan natural" oninput="updatePreview()"></textarea>
             </div>
 
         </div>
 
         <!-- KOLOM KANAN: PREVIEW PDF (Area ini yang akan di-print) -->
-        <div class="lg:w-2/3 overflow-x-auto pb-10">
+        <div class="lg:w-2/3 overflow-x-auto pb-10 print:w-full print:overflow-visible print:pb-0 print:p-0">
             <div id="pdf-preview">
                 
                 <!-- ================= HALAMAN 1 ================= -->
@@ -274,19 +295,21 @@
                     <!-- Diagram Batang (Chart) -->
                     <div class="flex-grow flex flex-col mt-4">
                         <h3 class="font-bold text-gray-800 mb-3 border-l-4 border-blue-500 pl-2">Grafik Perkembangan Praktik</h3>
-                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex-grow flex justify-center w-full min-h-[200px]">
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex-grow flex justify-center items-center w-full min-h-[200px] relative">
+                            <!-- Canvas untuk web -->
                             <canvas id="scoreChart"></canvas>
+                            <!-- Image tersembunyi yang akan muncul SAAT dicetak agar grafik tidak blank -->
+                            <img id="scoreChartImg" class="hidden max-h-full max-w-full object-contain" alt="Grafik Print" />
                         </div>
                     </div>
                 </div> <!-- End of Page 1 -->
 
                 <!-- Visual Separator untuk Web (Tidak ikut ter-print di PDF) -->
-                <div data-html2canvas-ignore class="w-full border-t-2 border-dashed border-gray-400 my-8 relative flex justify-center bg-transparent">
+                <div class="w-full border-t-2 border-dashed border-gray-400 my-8 relative flex justify-center bg-transparent print:hidden">
                     <span class="bg-gray-200 px-4 py-1 text-gray-600 text-xs font-bold uppercase rounded-full absolute -top-3 shadow-sm border border-gray-300">Batas Halaman 1 & 2</span>
                 </div>
 
                 <!-- ================= HALAMAN 2 ================= -->
-                <!-- Menambahkan class break-here langsung ke wrapper halaman 2 -->
                 <div class="pdf-page break-here relative flex flex-col justify-between">
                     <!-- Catatan Penilaian -->
                     <div class="flex-grow flex flex-col">
@@ -348,7 +371,6 @@
             // Highlight nama panggilan di catatan (Bold)
             if(panggilan !== '-') {
                 const regex = new RegExp(`\\b${panggilan}\\b`, 'gi');
-                // Pastikan tidak merusak tag span yang mungkin sudah ada
                 catatanHtml = catatanHtml.replace(regex, `<strong>${panggilan}</strong>`);
             }
             
@@ -392,7 +414,7 @@
                     ]
                 },
                 options: {
-                    animation: false, // PENTING: Matikan animasi agar canvas langsung siap saat dirender ke PDF
+                    animation: false, // PENTING: Matikan animasi agar canvas langsung siap saat dicetak
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
@@ -466,6 +488,30 @@
         }
 
         const apiKey = ""; // Disuplai otomatis oleh sistem di latar belakang
+
+        // Fungsi khusus untuk mempersiapkan PDF agar Grafik tidak blank
+        function preparePrint() {
+            const canvas = document.getElementById('scoreChart');
+            const img = document.getElementById('scoreChartImg');
+
+            // Ubah canvas menjadi gambar base64
+            if (progressChart) {
+                img.src = progressChart.toBase64Image();
+                canvas.classList.add('hidden'); // Sembunyikan canvas
+                img.classList.remove('hidden'); // Tampilkan gambar statis
+            }
+
+            // Beri jeda kecil agar browser sempat merender gambar sebelum membuka dialog Print
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        }
+
+        // Kembalikan ke wujud Canvas setelah dialog print ditutup
+        window.addEventListener('afterprint', () => {
+            document.getElementById('scoreChart').classList.remove('hidden');
+            document.getElementById('scoreChartImg').classList.add('hidden');
+        });
 
         async function generateWithGemini(promptText) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -555,33 +601,6 @@ ${rawNotes || 'Tidak ada catatan mentah khusus dari instruktur. Buatkan analisis
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
-        }
-
-        // PDF Download Function using html2pdf
-        function downloadPDF() {
-            const element = document.getElementById('pdf-preview');
-            const studentName = document.getElementById('input-nama').value || 'Peserta';
-            
-            // Konfigurasi ketat agar hasil presisi 2 halaman A4
-            const opt = {
-                margin:       0, 
-                filename:     `Report_YEC_${studentName.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: 'css', before: '.break-here' } // Tembak langsung class break-here di Halaman 2
-            };
-
-            // Berikan efek loading pada tombol agar user tahu sedang diproses
-            const btn = document.querySelector('button[onclick="downloadPDF()"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Memproses PDF...';
-            btn.disabled = true;
-
-            html2pdf().set(opt).from(element).save().then(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
         }
 
         // Init
